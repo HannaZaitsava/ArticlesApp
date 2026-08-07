@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Solution Items/" />
+  <Folder Name="/src/">
+    <Project Path="src/Application/Application.csproj" />
+    <Project Path="src/ArticlesAPI/ArticlesAPI.csproj" />
+    <Project Path="src/Domain/Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Cache/ArticlesApp.Infrastructure.Cache.csproj" />
+    <Project Path="src/Infrastructure/Common/ArticlesApp.Infrastructure.Common.csproj" />
+    <Project Path="src/Infrastructure/DataAccess/ArticlesApp.Infrastructure.DataAccess.csproj" />
+    <Project Path="src/Infrastructure/Logging/ArticlesApp.Infrastructure.Logging.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/ArchitectureTests/ArticlesApp.Tests.ArchitectureTests.csproj" Id="3cdd9c5c-262e-415d-bb25-5fa638010eab" />
+    <Project Path="Tests/IntegrationTests/ArticlesApp.Tests.IntegrationTests.csproj" Id="03896807-e760-428a-8cb1-478fb8eb5f5c" />
+    <Project Path="Tests/Shared/ArticlesApp.Tests.Shared.csproj" />
+    <Project Path="Tests/UnitTests/ArticlesApp.Tests.UnitTests.csproj" Id="cfdfbc76-c396-478f-b5c7-9fc198330666" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>
