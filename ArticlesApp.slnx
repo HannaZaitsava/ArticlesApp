@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/Solution Items/" />
+  <Folder Name="/src/" />
+  <Folder Name="/src/Application/">
+    <Project Path="src/Application/ArticlesApp.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/ArticlesAPI/">
+    <Project Path="src/ArticlesAPI/ArticlesApp.ArticlesAPI.csproj" />
+  </Folder>
+  <Folder Name="/src/Domain/">
+    <Project Path="src/Domain/ArticlesApp.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/" />
+  <Folder Name="/src/Infrastructure/Cache/">
+    <Project Path="src/Infrastructure/Cache/ArticlesApp.Infrastructure.Cache.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/DataAccess/">
+    <Project Path="src/Infrastructure/DataAccess/ArticlesApp.Infrastructure.DataAccess.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/Logging/">
+    <Project Path="src/Infrastructure/Logging/ArticlesApp.Infrastructure.Logging.csproj" />
+  </Folder>
+  <Folder Name="/src/SharedKernel/">
+    <Project Path="src/SharedKernel/ArticlesApp.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ArchitectureTests/ArticlesApp.Tests.ArchitectureTests.csproj" Id="3cdd9c5c-262e-415d-bb25-5fa638010eab" />
+    <Project Path="tests/IntegrationTests/ArticlesApp.Tests.IntegrationTests.csproj" Id="03896807-e760-428a-8cb1-478fb8eb5f5c" />
+    <Project Path="tests/Shared/ArticlesApp.Tests.Shared.csproj" />
+    <Project Path="tests/UnitTests/ArticlesApp.Tests.UnitTests.csproj" Id="cfdfbc76-c396-478f-b5c7-9fc198330666" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>
