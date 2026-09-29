@@ -10,7 +10,7 @@ namespace ArticlesApp.Application.CQRS.Commands.CommentCommands.DeleteComment
 {
     internal class DeleteCommentCommandHandler(
         IBaseRepository<Comment> repository,
-        IMediator mediator)
+        ICacheInvalidationContext cacheContext)
         : IRequestHandler<DeleteCommentCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(DeleteCommentCommand request, CancellationToken cancellationToken)
@@ -28,16 +28,13 @@ namespace ArticlesApp.Application.CQRS.Commands.CommentCommands.DeleteComment
             await repository.SaveChangesAsync(cancellationToken);
 
             // Cache tags to invalidate
-            var tagsToInvalidate = new HashSet<string>
-            {
-                CacheTags.Comment(commentId)
-            };
-            if (commentEntity.ParentId is not null)
-                tagsToInvalidate.Add(CacheTags.Comment((Guid)commentEntity.ParentId));
+            cacheContext.AddTag(CacheTags.Comment(commentId));
 
-            /// TODO: возможно, заменить инвалидацию кеша на паттерн Cache Update (Push в кэш): не инвалидировать тег, а асинхронно дописать (делает push) 
+            if (commentEntity.ParentId is not null)
+                cacheContext.AddTag(CacheTags.Comment((Guid)commentEntity.ParentId));
+
+            /// TODO: возможно, заменить инвалидацию кэша на паттерн Cache Update (Push в кэш): не инвалидировать тег, а асинхронно дописать (делает push) 
             /// комментарий прямо в существующий закэшированный список комментариев в Redis (например, если кэш хранится в виде JSON-массива или структуры данных Redis List).
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
 
             return Result<bool>.Success(true);
         }

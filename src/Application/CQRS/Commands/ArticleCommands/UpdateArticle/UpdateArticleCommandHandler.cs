@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Common.Events;
-using ArticlesApp.Application.Abstractions.DataAccess;
+﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
 using ArticlesApp.Domain.Entities;
 using ArticlesApp.Domain.Errors;
@@ -13,13 +12,13 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.UpdateArticle
         IArticleRepository articleRepository,
         IBaseRepository<Tag> tagRepository,
         IBaseRepository<ArticleCategory> categoryRepository,
-        IMediator mediator,
+        ICacheInvalidationContext cacheContext,
         IMapper mapper) : IRequestHandler<UpdateArticleCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(UpdateArticleCommand request, CancellationToken cancellationToken)
         {
             var articleId = request.Id;
-            
+
             var article = await articleRepository.GetArticleInfoWihoutCommentsAsync(articleId, ct: cancellationToken);
 
             if (article is null)
@@ -30,12 +29,11 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.UpdateArticle
             mapper.Map(request, article);
 
             // Cache tags to invalidate
-            var tagsToInvalidate = new HashSet<string>
-            {
-                CacheTags.Articles,            
-                CacheTags.Article(request.Id),
-                CacheTags.ArticleComments(articleId)
-            };
+            cacheContext.AddTags([
+                 CacheTags.Articles,
+                 CacheTags.Article(request.Id),
+                 CacheTags.ArticleComments(articleId)
+                ]);
 
             // 1. Если поле Tags отсутствует в JSON (null), то  НЕ ТРОГАЕМ существующие теги в базе.
             // 2. Если поле Tags пришло как [] (Count == 0), удаляем все старые связи.
@@ -63,16 +61,16 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.UpdateArticle
                     {
                         article.Tags.Remove(tag);
                         // Инвалидация тегов Тегов, которые отвязываются от статьи
-                        tagsToInvalidate.Add(CacheTags.Tag(tag.Id));
+                        cacheContext.AddTag(CacheTags.Tag(tag.Id));
                     }
 
                     var articleCurrentTagsIds = article.Tags.Select(x => x.Id).ToList();
                     var tagsToAdd = validTagsToAdd.Where(tag => !articleCurrentTagsIds.Contains(tag.Id)).ToList();
                     foreach (var tag in tagsToAdd)
-                    { 
+                    {
                         article.Tags.Add(tag);
                         // Инвалидация тегов Тегов, которые привязываются к статье
-                        tagsToInvalidate.Add(CacheTags.Tag(tag.Id));
+                        cacheContext.AddTag(CacheTags.Tag(tag.Id));
                     }
                 }
             }
@@ -95,12 +93,12 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.UpdateArticle
                     }
 
                     var validCategoriesToAddIds = validCategoriesToAdd.Select(x => x.Id).ToList();
-                    var categoriesToRemove = article.Categories.Where(category => !validCategoriesToAddIds.Contains(category.Id)).ToList();                    
+                    var categoriesToRemove = article.Categories.Where(category => !validCategoriesToAddIds.Contains(category.Id)).ToList();
                     foreach (var category in categoriesToRemove)
                     {
                         article.Categories.Remove(category);
                         // Инвалидация тегов Категорий, которые отвязываются от статьи
-                        tagsToInvalidate.Add(CacheTags.ArticleCategory(category.Id));
+                        cacheContext.AddTag(CacheTags.ArticleCategory(category.Id));
                     }
 
                     var articleCurrentCategoriesIds = article.Categories.Select(x => x.Id).ToList();
@@ -109,14 +107,12 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.UpdateArticle
                     {
                         article.Categories.Add(category);
                         // Инвалидация тегов Категорий, которые привязываются к статье
-                        tagsToInvalidate.Add(CacheTags.ArticleCategory(category.Id));
+                        cacheContext.AddTag(CacheTags.ArticleCategory(category.Id));
                     }
                 }
-            }            
+            }
 
             await articleRepository.SaveChangesAsync(cancellationToken);
-
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
 
             return Result<bool>.Success(true);
         }

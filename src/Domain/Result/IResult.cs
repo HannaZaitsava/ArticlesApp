@@ -7,7 +7,7 @@
     /// Нужен для корректной работы кеширования.
     /// Т.к. в бизнес-логике реализован Result Pattern, то кешировать нужно не все значение Result<T>, а только его Value.
     /// </remarks>
-    public interface IResultAdapter
+    public interface IResult
     {
         bool IsSuccess { get; }
         object? RawValue { get; }

@@ -3,7 +3,7 @@ using ArticlesApp.Domain.Errors;
 
 namespace ArticlesApp.Domain.Result
 {
-    public class Result<T>: IResultAdapter
+    public class Result<T>: IResult
     {
         public bool IsSuccess { get; }
         public bool IsFailure => !IsSuccess;
@@ -28,7 +28,7 @@ namespace ArticlesApp.Domain.Result
         public static Result<T> Failure(List<Error> errors) => new Result<T>(false, default, errors);
 
         // Реализация интерфейса
-        object? IResultAdapter.RawValue => Value;
-        object IResultAdapter.ToFailureResult() => this; // Возвращает сам себя, если это ошибка
+        object? IResult.RawValue => Value;
+        object IResult.ToFailureResult() => this;
     }
 }

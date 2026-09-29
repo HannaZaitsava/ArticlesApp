@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Common.Events;
-using ArticlesApp.Application.Abstractions.DataAccess;
+﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
 using ArticlesApp.Application.DTOs.Tags;
 using ArticlesApp.Domain.Entities;
@@ -10,19 +9,19 @@ using MediatR;
 
 namespace ArticlesApp.Application.CQRS.Commands.TagCommands.CreateTag
 {
-    internal class CreateTagCommandHandler (
-        IBaseRepository<Tag> repository, 
-        IMediator mediator,
-        IMapper mapper) 
+    internal class CreateTagCommandHandler(
+        IBaseRepository<Tag> repository,
+        ICacheInvalidationContext cacheContext,
+        IMapper mapper)
         : IRequestHandler<CreateTagCommand, Result<TagResponseDTO>>
-    {        
+    {
         public async Task<Result<TagResponseDTO>> Handle(CreateTagCommand request, CancellationToken cancellationToken)
         {
             var tagLabel = request.Label;
             var exists = await repository.IsExistingAsync(t => t.Label == tagLabel, cancellationToken);
 
             if (exists)
-            {                
+            {
                 return Result<TagResponseDTO>.Failure([TagErrors.TagAlreadyExists(tagLabel)]);
             }
 
@@ -30,9 +29,9 @@ namespace ArticlesApp.Application.CQRS.Commands.TagCommands.CreateTag
             //tag.Id = Guid.NewGuid(); // Генерация Guid на стороне приложения (Best Practice для CQRS)
 
             await repository.AddAsync(tag, cancellationToken);
-            await repository.SaveChangesAsync(cancellationToken);           
-            
-            await mediator.Publish(new CacheInvalidationEvent([CacheTags.Tags]), cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
+
+            cacheContext.AddTag(CacheTags.Tags);
 
             var tagResponseDTO = mapper.Map<TagResponseDTO>(tag);
 

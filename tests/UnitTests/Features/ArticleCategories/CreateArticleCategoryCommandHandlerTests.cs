@@ -1,14 +1,12 @@
 using System.Linq.Expressions;
 using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
-using ArticlesApp.Application.Common.Events;
 using ArticlesApp.Application.CQRS.Commands.ArticleCategoryCommands.CreateArticleCategory;
 using ArticlesApp.Domain.Entities;
 using ArticlesApp.Domain.Errors;
 using ArticlesApp.Tests.UnitTests.Attributes;
 using AutoFixture.Xunit2;
 using FluentAssertions;
-using MediatR;
 using Moq;
 
 namespace ArticlesApp.Tests.UnitTests.Features.ArticleCategories
@@ -18,7 +16,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.ArticleCategories
         [Theory, AutoMoqData]
         internal async Task Handle_WhenArticleCategoryDoesNotExist_ShouldCreateArticleCategoryAndReturnSuccess(
             [Frozen] Mock<IBaseRepository<ArticleCategory>> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             CreateArticleCategoryCommand command,
             CreateArticleCategoryCommandHandler handler)
         {
@@ -44,16 +42,13 @@ namespace ArticlesApp.Tests.UnitTests.Features.ArticleCategories
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
             var expectedCacheTagsToInvalidate = new HashSet<string> { CacheTags.ArticleCategories };
-            mediatorMock.Verify(m => m.Publish(
-                It.Is<CacheInvalidationEvent>(e => e.Tags.SetEquals(expectedCacheTagsToInvalidate)),
-                It.IsAny<CancellationToken>()),
-                Times.Once);
+            cacheContext.Tags.Should().BeEquivalentTo(expectedCacheTagsToInvalidate);
         }
 
         [Theory, AutoMoqData]
         internal async Task Handle_WhenArticleCategoryAlreadyExists_ShouldReturnFailureWithProperError(
             [Frozen] Mock<IBaseRepository<ArticleCategory>> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             CreateArticleCategoryCommand command,
             CreateArticleCategoryCommandHandler handler)
         {
@@ -73,10 +68,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.ArticleCategories
             repositoryMock.Verify(r => r.AddAsync(It.IsAny<ArticleCategory>(), It.IsAny<CancellationToken>()), Times.Never);
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-            mediatorMock.Verify(m => m.Publish(
-                It.IsAny<CacheInvalidationEvent>(),
-                It.IsAny<CancellationToken>()),
-                Times.Never);
+            cacheContext.Tags.Should().BeEmpty();
         }
     }
 }

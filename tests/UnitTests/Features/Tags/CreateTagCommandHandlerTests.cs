@@ -1,14 +1,12 @@
 using System.Linq.Expressions;
 using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
-using ArticlesApp.Application.Common.Events;
 using ArticlesApp.Application.CQRS.Commands.TagCommands.CreateTag;
 using ArticlesApp.Domain.Entities;
 using ArticlesApp.Domain.Errors;
 using ArticlesApp.Tests.UnitTests.Attributes;
 using AutoFixture.Xunit2;
 using FluentAssertions;
-using MediatR;
 using Moq;
 
 namespace ArticlesApp.Tests.UnitTests.Features.Tags
@@ -20,7 +18,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
          [Theory, AutoMoqData]
          internal async Task Handle_WhenTagDoesNotExist_ShouldAddTag_SaveChanges_PublishCacheAndReturnDto(
              [Frozen] Mock<IBaseRepository<Tag>> repositoryMock,
-             [Frozen] Mock<IMediator> mediatorMock,
+             [Frozen] Mock<ICacheInvalidationContext> cacheContextMock,
              [Frozen] Mock<IMapper> mapperMock,
              CreateTagCommand command,
              Tag tagEntity,
@@ -52,11 +50,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
              repositoryMock.Verify(r => r.AddAsync(tagEntity, It.IsAny<CancellationToken>()), Times.Once);
              repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
-             var expectedKeys = new HashSet<string> { CacheTags.Tags };
-             mediatorMock.Verify(m => m.Publish(
-                 It.Is<CacheInvalidationEvent>(e => e.Tags.SetEquals(expectedKeys)),
-                 It.IsAny<CancellationToken>()),
-                 Times.Once);
+             cacheContextMock.Verify(c => c.AddTag(CacheTags.Tags), Times.Once);
 
              mapperMock.Verify(m => m.Map<TagResponseDTO>(tagEntity), Times.Once);
          }
@@ -75,7 +69,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
         [Theory, AutoMoqData]
         internal async Task Handle_WhenTagDoesNotExist_ShouldCreateTagAndReturnSuccess(
            [Frozen] Mock<IBaseRepository<Tag>> repositoryMock,
-           [Frozen] Mock<IMediator> mediatorMock,
+           [Frozen] ICacheInvalidationContext cacheContext,
            CreateTagCommand command,
            CreateTagCommandHandler handler)
         {
@@ -87,7 +81,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             // Имитируем поведение БД: присваиваем Guid.NewGuid() объекту Tag
             repositoryMock
                 .Setup(r => r.AddAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
-                .Callback<Tag, CancellationToken>((tag, _) => tag.Id = Guid.NewGuid()) 
+                .Callback<Tag, CancellationToken>((tag, _) => tag.Id = Guid.NewGuid())
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -96,7 +90,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             // Assert
             result.IsSuccess.Should().BeTrue();
             // ID должен быть сгенерирован БД
-            result.Value!.Id.Should().NotBeEmpty(); 
+            result.Value!.Id.Should().NotBeEmpty();
             // Так мы проверяем бизнес-правило: «То, что пришло в команде, должно оказаться в ответе».
             // Т.е. так мы проверяем именно работу хендлера (передал ли он данные), а не просто «вернул ли он тот же инстанс DTO, что и раньше»
             // Если полей 2-3, можно проверть их явно 
@@ -110,23 +104,18 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
              можно использовать BeEquivalentTo с заранее созданным эталонным DTO
 
             //result.Value.Should().BeEquivalentTo(command, options => options.ExcludingMissingMembers());  
-
             */
 
-            repositoryMock.Verify(r => r.AddAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()), Times.Once); 
+            repositoryMock.Verify(r => r.AddAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()), Times.Once);
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
-            var expectedTagsToInvalidate = new HashSet<string> { CacheTags.Tags };
-            mediatorMock.Verify(m => m.Publish(
-                It.Is<CacheInvalidationEvent>(e => e.Tags.SetEquals(expectedTagsToInvalidate)),
-                It.IsAny<CancellationToken>()),
-                Times.Once);
+            cacheContext.Tags.Should().BeEquivalentTo(CacheTags.Tags);
         }
 
         [Theory, AutoMoqData]
         internal async Task Handle_WhenTagAlreadyExists_ShouldReturnFailureWithProperError(
             [Frozen] Mock<IBaseRepository<Tag>> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             CreateTagCommand command,
             CreateTagCommandHandler handler)
         {
@@ -146,10 +135,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             repositoryMock.Verify(r => r.AddAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()), Times.Never);
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-            mediatorMock.Verify(m => m.Publish(
-                It.IsAny<CacheInvalidationEvent>(),
-                It.IsAny<CancellationToken>()),
-                Times.Never);
+            cacheContext.Tags.Should().BeEmpty();
         }
     }
 }

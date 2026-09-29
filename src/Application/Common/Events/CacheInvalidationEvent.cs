@@ -2,5 +2,5 @@
 
 namespace ArticlesApp.Application.Common.Events
 {
-    public record CacheInvalidationEvent(HashSet<string> Tags) : INotification;
+    public record CacheInvalidationEvent(IReadOnlyCollection<string> Tags) : INotification;
 }

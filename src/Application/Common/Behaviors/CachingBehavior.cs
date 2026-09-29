@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Abstractions;
-using ArticlesApp.Application.Abstractions.Caching;
+﻿using ArticlesApp.Application.Abstractions.Caching;
 using ArticlesApp.Application.Common.Caching;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -9,7 +8,6 @@ namespace ArticlesApp.Application.Common.Behaviors
     public class CachingBehavior<TRequest, TResponse>(
         ICacheService cacheService,
         ICacheKeyBuilder keyBuilder,
-        IUserContext userContext,
         ILogger<CachingBehavior<TRequest, TResponse>> logger) : IPipelineBehavior<TRequest, TResponse>
         where TRequest : IRequest<TResponse>, ICachableRequest
     {       
@@ -19,13 +17,15 @@ namespace ArticlesApp.Application.Common.Behaviors
             CancellationToken ct)
         {
             // Если пользователь авторизован или кэш отключен для отдельного запроса => отключаем только ЧТЕНИЕ данных, а запись в кэш свежих данных оставляем.
-            var bypassCacheRead = userContext.IsAuthenticated || request.BypassCache;
-          
-            if (userContext.IsAuthenticated)
-            {
-                logger.LogInformation("Bypassing cache read (but updating it) for request {RequestName} for user: {UserId}", typeof(TRequest).Name, userContext.UserId);
-            }
-            else if (request.BypassCache)
+            // В контексте текущей логики работы со статьями авторизованный пользователь тоже должен получать закешированные статьи.
+            var bypassCacheRead = request.BypassCache; // || userContext.IsAuthenticated 
+
+            //if (userContext.IsAuthenticated)
+            //{
+            //    logger.LogInformation("Bypassing cache read (but updating it) for request {RequestName} for user: {UserId}", typeof(TRequest).Name, userContext.UserId);
+            //}
+            //else 
+            if (request.BypassCache)
             {
                 logger.LogInformation("Cache bypassed for {RequestName}. Fetching from source.", typeof(TRequest).Name);
             }

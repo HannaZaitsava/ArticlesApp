@@ -2,7 +2,7 @@
 using AutoFixture;
 using MapsterMapper;
 
-namespace ArticlesApp.Tests.UnitTests.FixtureExtensions
+namespace ArticlesApp.Tests.UnitTests.FixtureSetup
 {
     public static class FixtureExtensions
     {

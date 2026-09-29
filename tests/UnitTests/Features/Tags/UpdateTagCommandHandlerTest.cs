@@ -1,13 +1,11 @@
 ﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
-using ArticlesApp.Application.Common.Events;
 using ArticlesApp.Application.CQRS.Commands.TagCommands.UpdateTag;
 using ArticlesApp.Domain.Entities;
 using ArticlesApp.Domain.Errors;
 using ArticlesApp.Tests.UnitTests.Attributes;
 using AutoFixture.Xunit2;
 using FluentAssertions;
-using MediatR;
 using Moq;
 
 namespace ArticlesApp.Tests.UnitTests.Features.Tags
@@ -17,7 +15,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
         [Theory, AutoMoqData]
         internal async Task Handle_WhenTagExists_ShouldUpdateDetailsAndReturnSuccessAndInvalidateCache(
             [Frozen] Mock<ITagRepository> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             UpdateTagCommand command,
             Tag tagEntity,
             UpdateTagCommandHandler handler)
@@ -33,13 +31,13 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
                 .ReturnsAsync(tagEntity);
 
             // ожидаемые ключи кэша
-            var expectedCacheKeys = new HashSet<string>
+            var expectedTagsToInvalidate = new HashSet<string>
             {
                 CacheTags.Tags,
                 CacheTags.Tag(command.Id)
             };
             foreach (var article in tagEntity.Articles)
-                expectedCacheKeys.Add(CacheTags.Article(article.Id));
+                expectedTagsToInvalidate.Add(CacheTags.Article(article.Id));
 
             // Act
             var result = await handler.Handle(command, CancellationToken.None);
@@ -52,17 +50,14 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             tagEntity.Color.Should().Be(command.Color);
 
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-                       
-            mediatorMock.Verify(m => m.Publish(
-                It.Is<CacheInvalidationEvent>(e => e.Tags.SetEquals(expectedCacheKeys)),
-                It.IsAny<CancellationToken>()),
-                Times.Once);
+
+            cacheContext.Tags.Should().BeEquivalentTo(expectedTagsToInvalidate);
         }
 
         [Theory, AutoMoqData]
         internal async Task Handle_WhenTagDoesNotExist_ShouldReturnFailureAndNotInvalidateCache(
             [Frozen] Mock<ITagRepository> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             UpdateTagCommand command,
             UpdateTagCommandHandler handler)
         {
@@ -79,22 +74,19 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
 
             // Assert
             result.IsFailure.Should().BeTrue();
-                        
+
             result.Errors.Should().ContainSingle()
                 .Which.Should().Be(TagErrors.TagNotFound(command.Id));
 
             repositoryMock.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-            mediatorMock.Verify(m => m.Publish(
-                It.IsAny<CacheInvalidationEvent>(),
-                It.IsAny<CancellationToken>()),
-                Times.Never);
+            cacheContext.Tags.Should().BeEmpty();
         }
 
         [Theory, AutoMoqData]
         internal async Task Handle_WhenTagHasNoRelatedArticles_ShouldInvalidateOnlyTagCacheKeys(
             [Frozen] Mock<ITagRepository> repositoryMock,
-            [Frozen] Mock<IMediator> mediatorMock,
+            [Frozen] ICacheInvalidationContext cacheContext,
             UpdateTagCommand command,
             Tag tagEntity,
             UpdateTagCommandHandler handler)
@@ -113,7 +105,7 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             {
                 CacheTags.Tags,
                 CacheTags.Tag(command.Id)
-            };           
+            };
 
             // Act
             var result = await handler.Handle(command, CancellationToken.None);
@@ -121,13 +113,8 @@ namespace ArticlesApp.Tests.UnitTests.Features.Tags
             // Assert
             result.IsSuccess.Should().BeTrue();
 
-            mediatorMock.Verify(
-                m => m.Publish(
-                    It.Is<CacheInvalidationEvent>(e =>
-                        e.Tags.Count == 2 && e.Tags.SetEquals(expectedCacheTagsToInvalidate)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            cacheContext.Tags.Count.Should().Be(expectedCacheTagsToInvalidate.Count);
+            cacheContext.Tags.Should().BeEquivalentTo(expectedCacheTagsToInvalidate);
         }
     }
 }
-

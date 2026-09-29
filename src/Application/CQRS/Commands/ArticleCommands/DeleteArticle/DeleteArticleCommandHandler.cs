@@ -8,8 +8,8 @@ using MediatR;
 namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.DeleteArticle
 {
     internal class DeleteArticleCommandHandler(
-        IArticleRepository repository, 
-        IMediator mediator) 
+        IArticleRepository repository,
+        ICacheInvalidationContext cacheContext)
         : IRequestHandler<DeleteArticleCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(DeleteArticleCommand request, CancellationToken cancellationToken)
@@ -23,30 +23,27 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.DeleteArticle
                 return Result<bool>.Failure([ArticleErrors.ArticleNotFound(articleId)]);
             }
 
-            // Cache tags to invalidate    
-            var tagsToInvalidate = new HashSet<string>
-            {
-                CacheTags.Articles,            
+            // Cache tags to invalidate  
+            cacheContext.AddTags([
+                CacheTags.Articles,
                 CacheTags.Article(articleId),
                 CacheTags.ArticleComments(articleId)
-            };
-            
+                ]);
+
             if (articleEntity.Categories is not null)
             {
                 foreach (var сategory in articleEntity.Categories)
-                    tagsToInvalidate.Add(CacheTags.ArticleCategory(сategory.Id));
+                    cacheContext.AddTag(CacheTags.ArticleCategory(сategory.Id));
             }
 
             if (articleEntity.Tags is not null)
             {
                 foreach (var tag in articleEntity.Tags)
-                    tagsToInvalidate.Add(CacheTags.Tag(tag.Id));
+                    cacheContext.AddTag(CacheTags.Tag(tag.Id));
             }
 
             repository.Remove(articleEntity);
             await repository.SaveChangesAsync(cancellationToken);
-
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
 
             return Result<bool>.Success(true);
         }

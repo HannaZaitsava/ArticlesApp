@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Common.Events;
-using ArticlesApp.Application.Abstractions.DataAccess;
+﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
 using ArticlesApp.Application.DTOs.ArticleCategories;
 using ArticlesApp.Domain.Entities;
@@ -11,9 +10,9 @@ using MediatR;
 namespace ArticlesApp.Application.CQRS.Commands.ArticleCategoryCommands.CreateArticleCategory
 {
     internal class CreateArticleCategoryCommandHandler(
-        IBaseRepository<ArticleCategory> repository, 
-        IMediator mediator,
-        IMapper mapper) 
+        IBaseRepository<ArticleCategory> repository,
+        ICacheInvalidationContext cacheContext,
+        IMapper mapper)
         : IRequestHandler<CreateArticleCategoryCommand, Result<ArticleCategoryResponseDTO>>
     {
         public async Task<Result<ArticleCategoryResponseDTO>> Handle(CreateArticleCategoryCommand request, CancellationToken cancellationToken)
@@ -30,7 +29,7 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCategoryCommands.CreateAr
             await repository.AddAsync(articleCategory, cancellationToken);
             await repository.SaveChangesAsync(cancellationToken);
 
-            await mediator.Publish(new CacheInvalidationEvent([CacheTags.ArticleCategories]), cancellationToken);
+            cacheContext.AddTag(CacheTags.ArticleCategories);
 
             var responseDto = mapper.Map<ArticleCategoryResponseDTO>(articleCategory);
 

@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Common.Events;
-using ArticlesApp.Application.Abstractions.DataAccess;
+﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
 using ArticlesApp.Domain.Errors;
 using ArticlesApp.Domain.Result;
@@ -9,9 +8,9 @@ using MediatR;
 namespace ArticlesApp.Application.CQRS.Commands.TagCommands.UpdateTag
 {
     internal class UpdateTagCommandHandler(
-        ITagRepository repository, 
-        IMediator mediator,
-        IMapper mapper) 
+        ITagRepository repository,
+        ICacheInvalidationContext cacheContext,
+        IMapper mapper)
         : IRequestHandler<UpdateTagCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(UpdateTagCommand request, CancellationToken cancellationToken)
@@ -26,23 +25,20 @@ namespace ArticlesApp.Application.CQRS.Commands.TagCommands.UpdateTag
             }
 
             mapper.Map(request, tagEntity);
-            
+
             // Cache tags to invalidate
-            var tagsToInvalidate = new HashSet<string>
-            {
+            cacheContext.AddTags([
                 CacheTags.Tags,
                 CacheTags.Tag(request.Id)
-            };                        
+                ]);
 
             if (tagEntity.Articles is not null)
             {
                 foreach (var article in tagEntity.Articles)
-                    tagsToInvalidate.Add(CacheTags.Article(article.Id));
+                    cacheContext.AddTag(CacheTags.Article(article.Id));
             }
-            
-            await repository.SaveChangesAsync(cancellationToken);            
 
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
 
             return Result<bool>.Success(true);
         }

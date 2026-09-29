@@ -34,7 +34,7 @@ namespace ArticlesApp.Infrastructure.Cache
             {
                 // Кэшировать Result вместе со статусом успеха нельзя. Нужно кэшировать только чистые данные.
                 // Кэшировать нужно только успешно полученные данные.                 
-                if (typeof(IResultAdapter).IsAssignableFrom(typeof(TResponse)))
+                if (typeof(IResult).IsAssignableFrom(typeof(TResponse)))
                 {
                     // Получаем тип ЧИСТЫХ ДАННЫХ (например, PagedResult<DTO>)
                     var dataType = typeof(TResponse).GetGenericArguments()[0];
@@ -52,7 +52,7 @@ namespace ArticlesApp.Infrastructure.Cache
 
                                 var executionResult = await factory(token);
 
-                                var adapter = (IResultAdapter)executionResult!;
+                                var adapter = (IResult)executionResult!;
                                 if (!adapter.IsSuccess)
                                 {
                                     // Если хэндлер вернул IsFailure, бросаем внутренний сбой, чтобы HybridCache не записывал её в кэш
@@ -173,55 +173,27 @@ namespace ArticlesApp.Infrastructure.Cache
 
         public async ValueTask RemoveByTagAsync(string tag, CancellationToken ct = default)
         {
-            try
-            {
-                await hybridCache.RemoveByTagAsync(tag, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Cache backend is down. Invalidation skipped for tag: {Tag}", string.Join(", ", tag));
-            }
+            await hybridCache.RemoveByTagAsync(tag, ct);
         }
 
         public async ValueTask RemoveByTagsAsync(IEnumerable<string> tags, CancellationToken ct = default)
         {
-            try
-            {
-                await hybridCache.RemoveByTagAsync(tags, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Cache backend is down. Invalidation skipped for tags: {Tags}", string.Join(", ", tags));
-            }
+            await hybridCache.RemoveByTagAsync(tags, ct);
         }
 
         public async ValueTask RemoveByKeyAsync(string key, CancellationToken ct = default)
         {
             var currentSettings = cacheSettings.CurrentValue;
 
-            try
-            {
-                await hybridCache.RemoveAsync($"{currentSettings.AppPrefix}{key}", ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Cache backend is down. Invalidation skipped for key: {Key}", string.Join(", ", key));
-            }
+            await hybridCache.RemoveAsync($"{currentSettings.AppPrefix}{key}", ct);
         }
 
         public async ValueTask RemoveByKeysAsync(IEnumerable<string> keys, CancellationToken ct = default)
         {
             var currentSettings = cacheSettings.CurrentValue;
 
-            try
-            {
-                var prefixedKeys = keys.Select(key => $"{currentSettings.AppPrefix}{key}");
-                await hybridCache.RemoveAsync(prefixedKeys, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogCritical(ex, "Cache backend is down. Invalidation skipped for keys: {Keys}", string.Join(", ", keys));
-            }
-        }        
+            var prefixedKeys = keys.Select(key => $"{currentSettings.AppPrefix}{key}");
+            await hybridCache.RemoveAsync(prefixedKeys, ct);
+        }
     }
 }

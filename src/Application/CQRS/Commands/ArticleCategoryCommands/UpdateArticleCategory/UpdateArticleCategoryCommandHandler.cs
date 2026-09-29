@@ -1,5 +1,4 @@
-﻿using ArticlesApp.Application.Common.Events;
-using ArticlesApp.Application.Abstractions.DataAccess;
+﻿using ArticlesApp.Application.Abstractions.DataAccess;
 using ArticlesApp.Application.Common.Caching;
 using ArticlesApp.Domain.Errors;
 using ArticlesApp.Domain.Result;
@@ -7,12 +6,12 @@ using MapsterMapper;
 using MediatR;
 
 namespace ArticlesApp.Application.CQRS.Commands.ArticleCategoryCommands.UpdateArticleCategory
-{   
-     internal class UpdateArticleCategoryCommandHandler(
-        IArticleCategoryRepository repository, 
-        IMediator mediator,
-        IMapper mapper) 
-        : IRequestHandler<UpdateArticleCategoryCommand, Result<bool>>
+{
+    internal class UpdateArticleCategoryCommandHandler(
+       IArticleCategoryRepository repository,
+       ICacheInvalidationContext cacheContext,
+       IMapper mapper)
+       : IRequestHandler<UpdateArticleCategoryCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(UpdateArticleCategoryCommand request, CancellationToken cancellationToken)
         {
@@ -27,22 +26,18 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCategoryCommands.UpdateAr
 
             mapper.Map(request, articleCategoryEntity);
 
-            // Cache tags to invalidate
-            var tagsToInvalidate = new HashSet<string>
-            {
+            cacheContext.AddTags([
                 CacheTags.ArticleCategories,
                 CacheTags.ArticleCategory(request.Id)
-            };
+                ]);
 
             if (articleCategoryEntity.Articles is not null)
             {
                 foreach (var article in articleCategoryEntity.Articles)
-                    tagsToInvalidate.Add(CacheTags.Article(article.Id));
-            }           
+                    cacheContext.AddTag(CacheTags.Article(article.Id));
+            }
 
-            await repository.SaveChangesAsync(cancellationToken);            
-
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
+            await repository.SaveChangesAsync(cancellationToken);
 
             return Result<bool>.Success(true);
         }

@@ -8,9 +8,9 @@ using MediatR;
 namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.PublishArticleCommand
 {
     internal class PublishArticleHandler(
-        IArticleRepository articleRepository, 
+        IArticleRepository articleRepository,
         TimeProvider timeProvider,
-        IMediator mediator) 
+        ICacheInvalidationContext cacheContext)
         : IRequestHandler<PublishArticleCommand, Result<bool>>
     {
         public async Task<Result<bool>> Handle(PublishArticleCommand request, CancellationToken cancellationToken)
@@ -21,40 +21,35 @@ namespace ArticlesApp.Application.CQRS.Commands.ArticleCommands.PublishArticleCo
             var articleEntity = await articleRepository.GetArticleInfoWihoutCommentsAsync(articleId, true, cancellationToken);
 
             if (articleEntity is null)
-            {
                 return Result<bool>.Failure([ArticleErrors.ArticleNotFound(articleId)]);
-            }
-            
+
             var publishingError = articleEntity.Publish(timeProvider.GetUtcNow());
 
-            if(publishingError is not null)
+            if (publishingError is not null)
                 return Result<bool>.Failure([publishingError]);
 
             await articleRepository.SaveChangesAsync(cancellationToken);
-
-            // Cache tags to invalidate 
-            var tagsToInvalidate = new HashSet<string>
-            {
-                CacheTags.Articles,
-                CacheTags.Article(articleId),
-                CacheTags.ArticleComments(articleId)
-            };
+            
+            // Cache tags to invalidate            
+            cacheContext.AddTags([
+                 CacheTags.Articles,
+                 CacheTags.Article(articleId),
+                 CacheTags.ArticleComments(articleId)
+             ]);
 
             if (articleEntity.Categories is not null)
             {
                 foreach (var сategory in articleEntity.Categories)
-                    tagsToInvalidate.Add(CacheTags.ArticleCategory(сategory.Id));
+                    cacheContext.AddTag(CacheTags.ArticleCategory(сategory.Id));
             }
 
             if (articleEntity.Tags is not null)
             {
                 foreach (var tag in articleEntity.Tags)
-                    tagsToInvalidate.Add(CacheTags.Tag(tag.Id));
+                    cacheContext.AddTag(CacheTags.Tag(tag.Id));
             }
-
-            await mediator.Publish(new CacheInvalidationEvent(tagsToInvalidate), cancellationToken);
-
-            return Result<bool>.Success(true);           
+            
+            return Result<bool>.Success(true);
         }
     }
 }

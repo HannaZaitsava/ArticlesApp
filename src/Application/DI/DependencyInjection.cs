@@ -1,4 +1,5 @@
 ﻿using ArticlesApp.Application.Common.Behaviors;
+using ArticlesApp.Application.Common.Caching;
 using FluentValidation;
 using Mapster;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,9 @@ namespace ArticlesApp.Application.DI
 
             // Регистрируем все валидаторы из сборки
             services.AddValidatorsFromAssembly(assembly);
-            
+
+            services.AddScoped<ICacheInvalidationContext, CacheInvalidationContext>();
+
             services.AddMediatR(cfg =>
             {
                 // Регистрация всех хендлеров из этой сборки
@@ -26,6 +29,7 @@ namespace ArticlesApp.Application.DI
                 cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
                 cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));     
                 cfg.AddOpenBehavior(typeof(CachingBehavior<,>));
+                cfg.AddOpenBehavior(typeof(CacheInvalidationBehavior<,>));
             });            
 
             return services;
