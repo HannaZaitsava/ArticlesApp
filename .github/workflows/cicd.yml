@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   # =========================================================================
-  # 1. ФАЗА ТЕСТИРОВАНИЯ (Запускается первой, Debug-конфигурация для скорости)
+  # 1. ФАЗА ТЕСТИРОВАНИЯ
   # =========================================================================
   test:
     name: Run Unit & Integration Tests
@@ -47,7 +47,7 @@ jobs:
         run: dotnet test ArticlesApp.slnx --configuration Debug --verbosity normal
 
   # =========================================================================
-  # 2. ФАЗА СБОРКИ РЕШЕНИЯ (Запускается только если тесты зеленые)
+  # 2. ФАЗА СБОРКИ РЕШЕНИЯ
   # =========================================================================
   build:
     name: Compile Solution (Release)
@@ -91,27 +91,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Авторизация в GitHub Container Registry с использованием системного токена
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+     # Авторизация в GitHub Container Registry с использованием системного токена
+      # Временно отключаем логин, так как стадию пуша пока исключаем
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ${{ env.REGISTRY }}
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Переводим имя репозитория в нижний регистр (требование Docker к тегам)
-      - name: Convert repository owner to lowercase
-        run: |
-          echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
-        env:
-          OWNER: '${{ github.repository_owner }}'
+
+       # Переводим имя репозитория в нижний регистр (требование Docker к тегам)
+      # Временно отключаем переменную нижнего регистра, так как стадию пуша пока исключаем
+      # - name: Convert repository owner to lowercase
+      #   run: |
+      #     echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
+      #   env:
+      #     OWNER: '${{ github.repository_owner }}'
 
       # Сборка и автоматический пуш образа Articles API
       - name: Build and Push Articles API Image
         run: |
-          docker build \
-            -f ./src/ArticlesAPI/Dockerfile \
-            -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }} \
-            -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest .
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }}
-          docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest
+         docker build \
+            -f ./src/Services/ArticlesService/ArticlesAPI/Dockerfile \
+            -t articles-api:${{ github.sha }} \
+            -t articles-api:latest .
+          # docker build \
+          #   -f ./src/Services/ArticlesService/ArticlesAPI/Dockerfile \
+          #   -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }} \
+          #   -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest .
+          # docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }}
+          # docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest
+         
