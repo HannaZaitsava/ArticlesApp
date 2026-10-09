@@ -7,10 +7,10 @@ on:
     branches: [ "master" ]
   workflow_dispatch:
 
-# Обязательные права для публикации образов в GitHub Packages (GHCR)
+# Права на запись пакетов временно не требуются, так как пуш отключен
 permissions:
   contents: read
-  packages: write
+  # packages: write
 
 jobs:
   # =========================================================================
@@ -79,20 +79,19 @@ jobs:
         run: dotnet build ArticlesApp.slnx --no-restore --configuration Release
 
   # =========================================================================
-  # 3. ФАЗА СБОРКИ И ДЕПЛОЯ DOCKER-ОБРАЗА В GITHUB PACKAGES (GHCR)
+  # 3. ФАЗА СБОРКИ DOCKER-ОБРАЗА
   # =========================================================================
   publish-image:
-    name: Build & Push Docker Image to GHCR
+    name: Build Docker Image (Verify Only)
     needs: build
     runs-on: ubuntu-latest
-    env:
-      REGISTRY: ghcr.io
+    # env:
+    #   REGISTRY: ghcr.io
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Авторизация в GitHub Container Registry с использованием системного токена
-      # Временно отключаем логин, так как стадию пуша пока исключаем
+      # Временно отключаем логин в реестр GitHub Packages
       # - name: Log in to GitHub Container Registry
       #   uses: docker/login-action@v3
       #   with:
@@ -100,26 +99,23 @@ jobs:
       #     username: ${{ github.actor }}
       #     password: ${{ secrets.GITHUB_TOKEN }}
 
-
-      # Переводим имя репозитория в нижний регистр (требование Docker к тегам)
-      # Временно отключаем переменную нижнего регистра, так как стадию пуша пока исключаем
+      # Временно отключаем переменную нижнего регистра для имени владельца
       # - name: Convert repository owner to lowercase
       #   run: |
       #     echo "OWNER_LC=${OWNER,,}" >> ${GITHUB_ENV}
       #   env:
       #     OWNER: '${{ github.repository_owner }}'
 
-      # Сборка и автоматический пуш образа Articles API
-      - name: Build and Push Articles API Image
+      # Локальная сборка и тегирование образа (без отправки в интернет)
+      - name: Build Articles API Image
         run: |
-         docker build \
-            -f ./src/Services/ArticlesService/ArticlesAPI/Dockerfile \
+          docker build \
+            -f ./src/ArticlesAPI/Dockerfile \
             -t articles-api:${{ github.sha }} \
-            -t articles-api:latest .
+            -t articles-api:latest .          
           # docker build \
-          #   -f ./src/Services/ArticlesService/ArticlesAPI/Dockerfile \
+          #   -f ./src/ArticlesAPI/ArticlesAPI/Dockerfile \
           #   -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }} \
           #   -t ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest .
           # docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:${{ github.sha }}
           # docker push ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/articles-api:latest
-         
